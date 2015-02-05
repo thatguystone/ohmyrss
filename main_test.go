@@ -163,19 +163,34 @@ func TestFeeds(t *testing.T) {
 			continue
 		}
 
-		got, err := handleFeed(tc)
+		got, redirectURL, err := handleFeed(tc)
 		if err != nil {
 			t.Errorf("%s: failed to handle feed: %s", testName, err)
 			continue
 		}
 
-		if got != exp {
-			t.Errorf("%s: output mismatch:\n"+
-				"	got:      %s\n"+
-				"	expected: %s",
-				testName,
-				got,
-				exp)
+		if redirectURL != "" {
+			if exp != redirectURL {
+				t.Errorf("%s: wrong redirect URL, got:\n"+
+					"	got:      %s\n"+
+					"	expected: %s",
+					testName,
+					redirectURL,
+					exp)
+			}
+		} else {
+			if got != exp {
+				t.Errorf("%s: output mismatch:\n"+
+					"	got:      %s\n"+
+					"	expected: %s",
+					testName,
+					got,
+					exp)
+			}
 		}
 	}
+}
+
+func TestRedirect(t *testing.T) {
+
 }

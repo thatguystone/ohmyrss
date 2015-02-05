@@ -1,0 +1,9 @@
+<html>
+<head>
+	<title>Article 1</title>
+	<link href="atom.xml" type="application/atom+xml" rel="alternate" title="Redirect" />
+</head>
+<body>
+	<p>this is the body for article 1</p>
+</body>
+</html>

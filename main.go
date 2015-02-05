@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"strings"
 
+	"code.google.com/p/cascadia"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/bkaradzic/go-lz4"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/thatguystone/swan"
@@ -32,6 +34,10 @@ var (
 	memcacheServers = ""
 
 	errNoMc = errors.New("memcache disabled")
+
+	linkAlt = cascadia.MustCompile(
+		"link[rel=alternate][type=\"application/rss+xml\"][href], " +
+			"link[rel=alternate][type=\"application/atom+xml\"][href]")
 
 	mc *memcache.Client
 )
@@ -147,13 +153,18 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 
 	feedURL, err := getFeedURL(req.URL)
 	if err != nil {
-		http.Error(w, "invalid feed URL", 400)
+		http.Error(w, "invalid feed URL", http.StatusBadRequest)
 		return
 	}
 
-	feed, err := handleFeed(feedURL)
+	feed, redirectURL, err := handleFeed(feedURL)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if redirectURL != "" {
+		http.Redirect(w, req, redirectURL, http.StatusMovedPermanently)
 		return
 	}
 
@@ -177,31 +188,38 @@ func getFeedURL(origURL *url.URL) (string, error) {
 	return url.String(), nil
 }
 
-func handleFeed(url string) (string, error) {
+func handleFeed(url string) (feed string, redirectURL string, err error) {
 	body, _, err := swan.HttpGet(url)
 	if err != nil {
-		return "", err
+		return
 	}
 	defer body.Close()
 
 	in, err := ioutil.ReadAll(body)
 	if err != nil {
-		return "", err
+		return
 	}
 
 	var rss Rss
 	err = xml.Unmarshal(in, &rss)
 	if err == nil {
-		return handleRss(&rss)
+		feed, err = handleRss(&rss)
+		return
 	}
 
 	var atom Atom
 	err = xml.Unmarshal(in, &atom)
 	if err == nil {
-		return handleAtom(&atom)
+		feed, err = handleAtom(&atom)
+		return
 	}
 
-	return "", err
+	redirectURL = checkLandingPage(url, string(in))
+	if redirectURL != "" {
+		err = nil
+	}
+
+	return
 }
 
 func handleRss(rss *Rss) (string, error) {
@@ -270,4 +288,28 @@ func xmlEncode(v interface{}) (string, error) {
 	}
 
 	return string(res), nil
+}
+
+func checkLandingPage(purl string, content string) (redirectURL string) {
+	// Well, maybe we're looking at a landing page...
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		return
+	}
+
+	feedHref, _ := doc.FindMatcher(linkAlt).Attr("href")
+	if feedHref == "" {
+		return
+	}
+
+	feedURL, err := url.Parse(feedHref)
+	if err != nil {
+		return
+	}
+
+	// If this causes an error, an earlier check failed
+	baseURL, _ := url.Parse(purl)
+
+	redirectURL = baseURL.ResolveReference(feedURL).String()
+	return
 }

@@ -189,7 +189,7 @@ func getFeedURL(origURL *url.URL) (string, error) {
 }
 
 func handleFeed(url string) (feed string, redirectURL string, err error) {
-	body, _, err := swan.HttpGet(url)
+	body, _, err := swan.HTTPGet(url)
 	if err != nil {
 		return
 	}

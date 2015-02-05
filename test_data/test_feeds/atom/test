@@ -7,7 +7,7 @@
 	<id>urn:uuid:60a76c80-d399-11d9-b91C-0003939e0af6</id>
 	<updated>2003-12-13T18:30:02Z</updated>
 	<entry>
-		<title>Item 1</title>
+		<title>Article 1</title>
 		<link href="{{ .CommonURL }}/article1.html" />
 		<id>urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a</id>
 		<updated>2003-12-13T18:30:02Z</updated>
@@ -23,7 +23,7 @@
 		</author>
 	</entry>
 	<entry>
-		<title>Item 2</title>
+		<title>Article 2</title>
 		<link href="{{ .CommonURL }}/article2.html" />
 		<id>urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a</id>
 		<updated>2003-12-13T18:30:02Z</updated>

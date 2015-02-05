@@ -5,12 +5,12 @@
 		<link>{{ .TestURL }}</link>
 		<description>Test Feed</description>
 		<item>
-			<title>Item 1</title>
+			<title>Article 1</title>
 			<link>{{ .CommonURL }}/article1.html</link>
 			<description>bad content</description>
 		</item>
 		<item>
-			<title>Item 2</title>
+			<title>Article 2</title>
 			<link>{{ .CommonURL }}/article2.html</link>
 			<description>bad content</description>
 		</item>

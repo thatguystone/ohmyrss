@@ -30,7 +30,6 @@ func TestMemcache(t *testing.T) {
 	mc = memcache.New("127.0.0.1:11211")
 
 	a := &article{
-		Title:    "test title",
 		FinalURL: "some other url",
 		Content:  "i'm content with this",
 	}

@@ -5,7 +5,7 @@
 		<link>{{ .TestURL }}</link>
 		<description>Image Feed</description>
 		<item>
-			<title>Item 1</title>
+			<title>Article Img</title>
 			<link>{{ .CommonURL }}/article_img.html</link>
 			<description>bad content</description>
 		</item>

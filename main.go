@@ -24,7 +24,6 @@ import (
 )
 
 type article struct {
-	Title    string
 	FinalURL string
 	Content  string
 }
@@ -148,7 +147,6 @@ func getArticle(url string) *article {
 	if sa != nil && sa.TopNode != nil {
 		html, _ := sa.TopNode.Html()
 		art = &article{
-			Title:    sa.Meta.Title,
 			FinalURL: sa.URL,
 			Content:  strings.TrimSpace(html),
 		}
@@ -244,10 +242,6 @@ func handleRss(rss *Rss, t tracking) (string, error) {
 			continue
 		}
 
-		if a.Title != "" {
-			item.Title = a.Title
-		}
-
 		if a.FinalURL != "" {
 			item.Link = a.FinalURL
 		}
@@ -278,10 +272,6 @@ func handleAtom(atom *Atom, t tracking) (string, error) {
 		// Don't modify if something went wrong
 		if a == nil {
 			continue
-		}
-
-		if a.Title != "" {
-			item.Title = a.Title
 		}
 
 		if a.FinalURL != "" {

@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -23,50 +22,6 @@ type TestVariables struct {
 const (
 	testData = "test_data"
 )
-
-func TestGetFeedURL(t *testing.T) {
-	type test struct {
-		in  string
-		out string
-	}
-
-	urls := []test{
-		test{
-			in:  "/test.com",
-			out: "http://test.com",
-		},
-		test{
-			in:  "/https://github.com.com/asdfasfas",
-			out: "https://github.com.com/asdfasfas",
-		},
-		test{
-			in:  "/http://github.com.com/asdfasfas",
-			out: "http://github.com.com/asdfasfas",
-		},
-		test{
-			in:  "/http://user@github.com.com/asdfasfas",
-			out: "http://user@github.com.com/asdfasfas",
-		},
-	}
-
-	for _, ut := range urls {
-		parsed, err := url.Parse(ut.in)
-		if err != nil {
-			t.Errorf("failed to parse %s: %s", ut.in, err)
-			continue
-		}
-
-		cleaned, err := getFeedURL(parsed)
-		if err != nil {
-			t.Errorf("failed to clean %s: %s", ut.in, err)
-			continue
-		}
-
-		if cleaned != ut.out {
-			t.Errorf("mismatch: %s != %s", cleaned, ut.out)
-		}
-	}
-}
 
 func TestMemcache(t *testing.T) {
 	mc = memcache.New("127.0.0.1:11211")

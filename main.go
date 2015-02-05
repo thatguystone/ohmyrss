@@ -33,7 +33,8 @@ var (
 	httpPort        = 8080
 	memcacheServers = ""
 
-	errNoMc = errors.New("memcache disabled")
+	errNoMc        = errors.New("memcache disabled")
+	errInvalidPage = errors.New("could not find a feed on this page")
 
 	linkAlt = cascadia.MustCompile(
 		"link[rel=alternate][type=\"application/rss+xml\"][href], " +
@@ -151,10 +152,16 @@ func getArticle(url string) *article {
 func feedHandler(w http.ResponseWriter, req *http.Request) {
 	req.Body.Close()
 
-	feedURL, err := getFeedURL(req.URL)
-	if err != nil {
-		http.Error(w, "invalid feed URL", http.StatusBadRequest)
+	feedURL := req.FormValue("url")
+	if feedURL == "" {
+		http.Error(w, "missing url parameter", http.StatusBadRequest)
 		return
+	}
+
+	if !strings.HasPrefix(feedURL, "http://") &&
+		!strings.HasPrefix(feedURL, "https://") {
+
+		feedURL = "http://" + feedURL
 	}
 
 	feed, redirectURL, err := handleFeed(feedURL)
@@ -169,23 +176,6 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Write([]byte(feed))
-}
-
-func getFeedURL(origURL *url.URL) (string, error) {
-	origURL.Scheme = ""
-	origURL.User = nil
-	origURL.Host = ""
-
-	url, err := url.Parse(strings.TrimLeft(origURL.String(), "/"))
-	if err != nil {
-		return "", err
-	}
-
-	if url.Scheme == "" {
-		url.Scheme = "http"
-	}
-
-	return url.String(), nil
 }
 
 func handleFeed(url string) (feed string, redirectURL string, err error) {
@@ -217,6 +207,8 @@ func handleFeed(url string) (feed string, redirectURL string, err error) {
 	redirectURL = checkLandingPage(url, string(in))
 	if redirectURL != "" {
 		err = nil
+	} else {
+		err = errInvalidPage
 	}
 
 	return

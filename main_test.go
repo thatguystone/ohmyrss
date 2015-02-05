@@ -198,3 +198,23 @@ func TestRedirect(t *testing.T) {
 			exp)
 	}
 }
+
+func TestHTTPDisableLocal(t *testing.T) {
+	httpDisableLocal()
+
+	addrs := []string{
+		"http://localhost",
+		"http://localhost:8080",
+		"http://127.0.0.1",
+		"http://127.0.0.1:8080",
+		"http://::1",
+		"http://[::1]:8080",
+	}
+
+	for _, a := range addrs {
+		_, err := httpGet(a)
+		if err != errBadHost {
+			t.Errorf("%s allowed to hit localhost, no good: %s", a, err)
+		}
+	}
+}

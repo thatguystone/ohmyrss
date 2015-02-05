@@ -58,6 +58,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	httpDisableLocal()
 
 	if memcacheServers != "" {
 		mc = memcache.New(strings.Split(memcacheServers, ",")...)
@@ -192,7 +193,7 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func handleFeed(url string, t tracking) (feed string, redirectURL string, err error) {
-	body, _, err := swan.HTTPGet(url)
+	body, err := httpGet(url)
 	if err != nil {
 		return
 	}
@@ -334,7 +335,7 @@ func getTrackingURL(t tracking) string {
 
 func track(t tracking) {
 	go func() {
-		body, _, err := swan.HTTPGet(getTrackingURL(t))
+		body, err := httpGet(getTrackingURL(t))
 		if err == nil {
 			body.Close()
 		}

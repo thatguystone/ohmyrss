@@ -175,6 +175,7 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	w.Header().Add("Content-Type", "text/xml; charset=utf-8")
 	w.Write([]byte(feed))
 }
 

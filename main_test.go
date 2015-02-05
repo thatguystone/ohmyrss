@@ -209,6 +209,37 @@ func TestRedirect(t *testing.T) {
 	}
 }
 
+func TestSchemelessURLs(t *testing.T) {
+	var testName string
+	testDir := "test_redirect"
+
+	server, _ := setupServer(&testName, testDir)
+	defer server.Close()
+
+	pubServer := httptest.NewServer(http.HandlerFunc(feedHandler))
+	defer pubServer.Close()
+
+	u, _ := url.Parse(server.URL)
+
+	addrs := []string{
+		u.Host,
+		server.URL,
+	}
+
+	for _, addr := range addrs {
+		pu := fmt.Sprintf("%s/?url=%s/%s/test", pubServer.URL, addr, testDir)
+		resp, err := http.Get(pu)
+		if err != nil {
+			t.Fatalf("get error: %s", err)
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			t.Fatalf("request failed with code %d", resp.StatusCode)
+		}
+	}
+}
+
 func TestHTTPDisableLocal(t *testing.T) {
 	httpDisableLocal()
 

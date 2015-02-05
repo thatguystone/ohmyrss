@@ -180,8 +180,13 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if u.Scheme == "" {
-		u.Scheme = "http"
+	// For schemeless, just add an HTTP and retry
+	if u.Scheme != "http" && u.Scheme != "https" {
+		u, err = url.Parse("http://" + feedURL)
+		if err != nil {
+			http.Error(w, "invalid url", http.StatusBadRequest)
+			return
+		}
 	}
 
 	fr := feedRequest{

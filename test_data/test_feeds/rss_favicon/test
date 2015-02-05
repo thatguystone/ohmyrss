@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+	<channel>
+		<title>Test RSS</title>
+		<link>{{ .TestURL }}</link>
+		<description>Test Feed</description>
+		<image>
+			<title>Test RSS</title>
+			<link>{{ .TestURL }}</link>
+			<url>https://example.com/my_fancy_favicon.ico</url>
+		</image>
+		<item>
+			<title>Article 1</title>
+			<link>{{ .CommonURL }}/article1.html</link>
+			<description>bad content</description>
+		</item>
+	</channel>
+</rss>

@@ -17,6 +17,7 @@ import (
 )
 
 type TestVariables struct {
+	ServerHostPort string
 	TestURL         string
 	CommonURL       string
 	CommonURLAsPath string
@@ -64,11 +65,16 @@ func setupServer(testName *string, testDir string) (*httptest.Server, func(strin
 			return "", err
 		}
 
+		surl, _ := url.Parse(server.URL)
+		sHostPort := surl.Host
+
 		var b bytes.Buffer
+		cpu, _ := url.Parse(fmt.Sprintf("%s/%s", server.URL, "_common"))
 		err = t.Execute(&b, TestVariables{
+			ServerHostPort: sHostPort,
 			TestURL:         fmt.Sprintf("%s/%s/%s", server.URL, testDir, *testName),
 			CommonURL:       fmt.Sprintf("%s/%s", server.URL, "_common"),
-			CommonURLAsPath: url.QueryEscape(urlAsPath(fmt.Sprintf("%s/%s", server.URL, "_common"))),
+			CommonURLAsPath: url.QueryEscape(urlAsPath(*cpu)),
 		})
 		if err != nil {
 			return "", err
@@ -129,11 +135,15 @@ func TestFeeds(t *testing.T) {
 			continue
 		}
 
-		track := tracking{
-			cid: 123,
+		uc, _ := url.Parse(tc)
+		fr := feedRequest{
+			baseURL: uc,
+			t: tracking{
+				cid: 123,
+			},
 		}
 
-		got, redirectURL, err := handleFeed(tc, track)
+		got, redirectURL, err := handleFeed(fr)
 		if err != nil {
 			t.Errorf("%s: failed to handle feed: %s", testName, err)
 			continue
@@ -220,17 +230,20 @@ func TestHTTPDisableLocal(t *testing.T) {
 }
 
 func TestTracking(t *testing.T) {
-	tr := tracking{
-		ip:  "127.0.0.1",
-		cid: rand.Uint32(),
+	fr := feedRequest{
+		t: tracking{
+			ip:  "127.0.0.1",
+			cid: rand.Uint32(),
+			url: "http://localhost",
+		},
 	}
 
-	url := getTrackingURL(tr, true)
+	url := getTrackingURL(fr, true)
 	if !strings.Contains(url, "uip=127.0.0.1") {
 		t.Fatalf("uip param not found in : %s", url)
 	}
 
-	url = getTrackingURL(tr, false)
+	url = getTrackingURL(fr, false)
 	if strings.Contains(url, "uip=127.0.0.1") {
 		t.Fatalf("uip param found in : %s", url)
 	}

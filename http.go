@@ -44,14 +44,9 @@ func httpDisableLocal() {
 	httpLocalDisabled = true
 }
 
-func httpTestLocal(iu string) error {
+func httpTestLocal(u *url.URL) error {
 	if !httpLocalDisabled {
 		return nil
-	}
-
-	u, err := url.Parse(iu)
-	if err != nil {
-		return err
 	}
 
 	host, _, err := net.SplitHostPort(u.Host)
@@ -75,13 +70,22 @@ func httpTestLocal(iu string) error {
 	return nil
 }
 
-func httpGet(url string) (body io.ReadCloser, err error) {
-	err = httpTestLocal(url)
+func httpGet(u string) (body io.ReadCloser, err error) {
+	ur, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+
+	return httpGetURL(ur)
+}
+
+func httpGetURL(u *url.URL) (body io.ReadCloser, err error) {
+	err = httpTestLocal(u)
 	if err != nil {
 		return
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		err = fmt.Errorf("could not create new request: %s", err)
 		return

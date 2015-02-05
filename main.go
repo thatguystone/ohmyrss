@@ -35,6 +35,15 @@ type tracking struct {
 	title string
 }
 
+type feedRequest struct {
+	baseURL *url.URL
+	t       tracking
+}
+
+const (
+	googleFavicon = "https://www.google.com/s2/favicons?domain=%s&alt=feed"
+)
+
 var (
 	runFcgi         = false
 	httpPort        = 8080
@@ -165,18 +174,25 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !strings.HasPrefix(feedURL, "http://") &&
-		!strings.HasPrefix(feedURL, "https://") {
-
-		feedURL = "http://" + feedURL
+	u, err := url.Parse(feedURL)
+	if err != nil {
+		http.Error(w, "invalid url", http.StatusBadRequest)
+		return
 	}
 
-	t := tracking{
-		ip:  httpGetRemoteIP(req),
-		cid: rand.Uint32(),
+	if u.Scheme == "" {
+		u.Scheme = "http"
 	}
 
-	feed, redirectURL, err := handleFeed(feedURL, t)
+	fr := feedRequest{
+		baseURL: u,
+		t: tracking{
+			ip:  httpGetRemoteIP(req),
+			cid: rand.Uint32(),
+		},
+	}
+
+	feed, redirectURL, err := handleFeed(fr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -192,8 +208,8 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(feed))
 }
 
-func handleFeed(url string, t tracking) (feed string, redirectURL string, err error) {
-	body, err := httpGet(url)
+func handleFeed(fr feedRequest) (feed string, redirectURL string, err error) {
+	body, err := httpGetURL(fr.baseURL)
 	if err != nil {
 		return
 	}
@@ -204,23 +220,21 @@ func handleFeed(url string, t tracking) (feed string, redirectURL string, err er
 		return
 	}
 
-	t.url = url
-
 	var rss Rss
 	err = xml.Unmarshal(in, &rss)
 	if err == nil {
-		feed, err = handleRss(&rss, t)
+		feed, err = handleRss(&rss, fr)
 		return
 	}
 
 	var atom Atom
 	err = xml.Unmarshal(in, &atom)
 	if err == nil {
-		feed, err = handleAtom(&atom, t)
+		feed, err = handleAtom(&atom, fr)
 		return
 	}
 
-	redirectURL = checkLandingPage(url, string(in))
+	redirectURL = checkLandingPage(fr.baseURL, string(in))
 	if redirectURL != "" {
 		err = nil
 	} else {
@@ -230,11 +244,23 @@ func handleFeed(url string, t tracking) (feed string, redirectURL string, err er
 	return
 }
 
-func handleRss(rss *Rss, t tracking) (string, error) {
-	t.title = rss.Channel.Title
-	track(t)
+func handleRss(rss *Rss, fr feedRequest) (string, error) {
+	ch := rss.Channel
+	fr.t.title = ch.Title
+	track(fr)
 
-	for _, item := range rss.Channel.Items {
+	if ch.Image == nil {
+		ch.Image = &RssImage{
+			Title: ch.Title,
+			Link: ch.Link,
+		}
+	}
+
+	if ch.Image.Url == "" {
+		ch.Image.Url = fmt.Sprintf(googleFavicon, fr.baseURL.Host)
+	}
+
+	for _, item := range ch.Items {
 		a := getArticle(item.Link)
 
 		// Don't modify if something went wrong
@@ -250,17 +276,21 @@ func handleRss(rss *Rss, t tracking) (string, error) {
 			item.Description = a.Content
 		}
 
-		t.title = item.Title
-		t.url = item.Link
-		addTracking(&item.Description, t)
+		fr.t.title = item.Title
+		fr.t.url = item.Link
+		addTracking(&item.Description, fr)
 	}
 
 	return xmlEncode(rss)
 }
 
-func handleAtom(atom *Atom, t tracking) (string, error) {
-	t.title = atom.Title
-	track(t)
+func handleAtom(atom *Atom, fr feedRequest) (string, error) {
+	fr.t.title = atom.Title
+	track(fr)
+
+	if atom.Icon == "" {
+		atom.Icon = fmt.Sprintf(googleFavicon, fr.baseURL.Host)
+	}
 
 	for _, item := range atom.Entries {
 		if item.Link == nil {
@@ -287,9 +317,9 @@ func handleAtom(atom *Atom, t tracking) (string, error) {
 			item.Content.Content = a.Content
 		}
 
-		t.title = item.Title
-		t.url = item.Link.Href
-		addTracking(&item.Content.Content, t)
+		fr.t.title = item.Title
+		fr.t.url = item.Link.Href
+		addTracking(&item.Content.Content, fr)
 	}
 
 	return xmlEncode(atom)
@@ -304,47 +334,51 @@ func xmlEncode(v interface{}) (string, error) {
 	return string(res), nil
 }
 
-func urlAsPath(u string) string {
-	up, err := url.Parse(u)
-	if err != nil {
-		return "/url-parse-error"
-	}
+func urlAsPath(u url.URL) string {
+	u.Scheme = ""
+	u.Opaque = ""
+	u.User = nil
 
-	up.Scheme = ""
-	up.Opaque = ""
-	up.User = nil
-
-	return strings.TrimPrefix(up.String(), "/")
+	return strings.TrimPrefix(u.String(), "/")
 }
 
-func getTrackingURL(t tracking, includeIP bool) string {
+func getTrackingURL(fr feedRequest, includeIP bool) string {
 	ip := ""
 	if includeIP {
-		ip = fmt.Sprintf("&uip=%s", url.QueryEscape(t.ip))
+		ip = fmt.Sprintf("&uip=%s", url.QueryEscape(fr.t.ip))
+	}
+
+	var u *url.URL
+	if fr.t.url != "" {
+		u, _ = url.Parse(fr.t.url)
+	}
+
+	if u == nil {
+		u = fr.baseURL
 	}
 
 	return fmt.Sprintf(
 		"https://www.google-analytics.com/collect?v=1&tid=UA-6408039-10&cid=%d&t=pageview&dh=ohmyrss.com&dp=%s&dt=%s%s",
-		t.cid,
-		url.QueryEscape(urlAsPath(t.url)),
-		url.QueryEscape(t.title),
+		fr.t.cid,
+		url.QueryEscape(urlAsPath(*u)),
+		url.QueryEscape(fr.t.title),
 		ip)
 }
 
-func track(t tracking) {
+func track(fr feedRequest) {
 	go func() {
-		body, err := httpGet(getTrackingURL(t, true))
+		body, err := httpGet(getTrackingURL(fr, true))
 		if err == nil {
 			body.Close()
 		}
 	}()
 }
 
-func addTracking(content *string, t tracking) {
-	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(t, false))
+func addTracking(content *string, fr feedRequest) {
+	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(fr, false))
 }
 
-func checkLandingPage(purl string, content string) (redirectURL string) {
+func checkLandingPage(u *url.URL, content string) (redirectURL string) {
 	// Well, maybe we're looking at a landing page...
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
 	if err != nil {
@@ -361,9 +395,6 @@ func checkLandingPage(purl string, content string) (redirectURL string) {
 		return
 	}
 
-	// If this causes an error, an earlier check failed
-	baseURL, _ := url.Parse(purl)
-
-	redirectURL = baseURL.ResolveReference(feedURL).String()
+	redirectURL = u.ResolveReference(feedURL).String()
 	return
 }

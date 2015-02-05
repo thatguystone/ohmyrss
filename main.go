@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/fcgi"
 	"net/url"
@@ -26,6 +27,12 @@ type article struct {
 	Title    string
 	FinalURL string
 	Content  string
+}
+
+type tracking struct {
+	cid   uint32
+	url   string
+	title string
 }
 
 var (
@@ -164,7 +171,11 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 		feedURL = "http://" + feedURL
 	}
 
-	feed, redirectURL, err := handleFeed(feedURL)
+	t := tracking{
+		cid: rand.Uint32(),
+	}
+
+	feed, redirectURL, err := handleFeed(feedURL, t)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -180,7 +191,7 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(feed))
 }
 
-func handleFeed(url string) (feed string, redirectURL string, err error) {
+func handleFeed(url string, t tracking) (feed string, redirectURL string, err error) {
 	body, _, err := swan.HTTPGet(url)
 	if err != nil {
 		return
@@ -192,17 +203,19 @@ func handleFeed(url string) (feed string, redirectURL string, err error) {
 		return
 	}
 
+	t.url = url
+
 	var rss Rss
 	err = xml.Unmarshal(in, &rss)
 	if err == nil {
-		feed, err = handleRss(&rss)
+		feed, err = handleRss(&rss, t)
 		return
 	}
 
 	var atom Atom
 	err = xml.Unmarshal(in, &atom)
 	if err == nil {
-		feed, err = handleAtom(&atom)
+		feed, err = handleAtom(&atom, t)
 		return
 	}
 
@@ -216,7 +229,10 @@ func handleFeed(url string) (feed string, redirectURL string, err error) {
 	return
 }
 
-func handleRss(rss *Rss) (string, error) {
+func handleRss(rss *Rss, t tracking) (string, error) {
+	t.title = rss.Channel.Title
+	track(t)
+
 	for _, item := range rss.Channel.Items {
 		a := getArticle(item.Link)
 
@@ -236,12 +252,19 @@ func handleRss(rss *Rss) (string, error) {
 		if a.Content != "" {
 			item.Description = a.Content
 		}
+
+		t.title = item.Title
+		t.url = item.Link
+		addTracking(&item.Description, t)
 	}
 
 	return xmlEncode(rss)
 }
 
-func handleAtom(atom *Atom) (string, error) {
+func handleAtom(atom *Atom, t tracking) (string, error) {
+	t.title = atom.Title
+	track(t)
+
 	for _, item := range atom.Entries {
 		if item.Link == nil {
 			continue
@@ -270,6 +293,10 @@ func handleAtom(atom *Atom) (string, error) {
 			item.Content.Type = "html"
 			item.Content.Content = a.Content
 		}
+
+		t.title = item.Title
+		t.url = item.Link.Href
+		addTracking(&item.Content.Content, t)
 	}
 
 	return xmlEncode(atom)
@@ -282,6 +309,40 @@ func xmlEncode(v interface{}) (string, error) {
 	}
 
 	return string(res), nil
+}
+
+func urlAsPath(u string) string {
+	up, err := url.Parse(u)
+	if err != nil {
+		return "/url-parse-error"
+	}
+
+	up.Scheme = ""
+	up.Opaque = ""
+	up.User = nil
+
+	return strings.TrimPrefix(up.String(), "/")
+}
+
+func getTrackingURL(t tracking) string {
+	return fmt.Sprintf(
+		"https://www.google-analytics.com/collect?v=1&tid=UA-6408039-10&cid=%d&t=pageview&dh=ohmyrss.com&dp=%s&dt=%s",
+		t.cid,
+		url.QueryEscape(urlAsPath(t.url)),
+		url.QueryEscape(t.title))
+}
+
+func track(t tracking) {
+	go func() {
+		body, _, err := swan.HTTPGet(getTrackingURL(t))
+		if err == nil {
+			body.Close()
+		}
+	}()
+}
+
+func addTracking(content *string, t tracking) {
+	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(t))
 }
 
 func checkLandingPage(purl string, content string) (redirectURL string) {

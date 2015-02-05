@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -15,8 +16,9 @@ import (
 )
 
 type TestVariables struct {
-	TestURL   string
-	CommonURL string
+	TestURL         string
+	CommonURL       string
+	CommonURLAsPath string
 }
 
 const (
@@ -64,8 +66,9 @@ func setupServer(testName *string, testDir string) (*httptest.Server, func(strin
 
 		var b bytes.Buffer
 		err = t.Execute(&b, TestVariables{
-			TestURL:   fmt.Sprintf("%s/%s/%s", server.URL, testDir, *testName),
-			CommonURL: fmt.Sprintf("%s/%s", server.URL, "_common"),
+			TestURL:         fmt.Sprintf("%s/%s/%s", server.URL, testDir, *testName),
+			CommonURL:       fmt.Sprintf("%s/%s", server.URL, "_common"),
+			CommonURLAsPath: url.QueryEscape(urlAsPath(fmt.Sprintf("%s/%s", server.URL, "_common"))),
 		})
 		if err != nil {
 			return "", err
@@ -115,7 +118,11 @@ func TestFeeds(t *testing.T) {
 			continue
 		}
 
-		got, redirectURL, err := handleFeed(tc)
+		track := tracking{
+			cid: 123,
+		}
+
+		got, redirectURL, err := handleFeed(tc, track)
 		if err != nil {
 			t.Errorf("%s: failed to handle feed: %s", testName, err)
 			continue
@@ -171,8 +178,8 @@ func TestRedirect(t *testing.T) {
 		t.Fatalf("error running template: %s", err)
 	}
 
-	if exp != string(body) {
-		t.Fatalf("%s: output mismatch:\n"+
+	if !strings.HasPrefix(string(body), exp) {
+		t.Fatalf("%s: bad prefix:\n"+
 			"	got:      %s\n"+
 			"	expected: %s",
 			testName,

@@ -30,6 +30,7 @@ type article struct {
 }
 
 type tracking struct {
+	ip    string
 	cid   uint32
 	url   string
 	title string
@@ -173,6 +174,7 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	t := tracking{
+		ip:  httpGetRemoteIP(req),
 		cid: rand.Uint32(),
 	}
 
@@ -325,17 +327,23 @@ func urlAsPath(u string) string {
 	return strings.TrimPrefix(up.String(), "/")
 }
 
-func getTrackingURL(t tracking) string {
+func getTrackingURL(t tracking, includeIP bool) string {
+	ip := ""
+	if includeIP {
+		ip = fmt.Sprintf("&uip=%s", url.QueryEscape(t.ip))
+	}
+
 	return fmt.Sprintf(
-		"https://www.google-analytics.com/collect?v=1&tid=UA-6408039-10&cid=%d&t=pageview&dh=ohmyrss.com&dp=%s&dt=%s",
+		"https://www.google-analytics.com/collect?v=1&tid=UA-6408039-10&cid=%d&t=pageview&dh=ohmyrss.com&dp=%s&dt=%s%s",
 		t.cid,
 		url.QueryEscape(urlAsPath(t.url)),
-		url.QueryEscape(t.title))
+		url.QueryEscape(t.title),
+		ip)
 }
 
 func track(t tracking) {
 	go func() {
-		body, err := httpGet(getTrackingURL(t))
+		body, err := httpGet(getTrackingURL(t, true))
 		if err == nil {
 			body.Close()
 		}
@@ -343,7 +351,7 @@ func track(t tracking) {
 }
 
 func addTracking(content *string, t tracking) {
-	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(t))
+	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(t, false))
 }
 
 func checkLandingPage(purl string, content string) (redirectURL string) {

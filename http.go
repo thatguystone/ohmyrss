@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -22,8 +23,8 @@ var (
 	errBadHost = errors.New("bad hostname")
 
 	httpLocalDisabled = false
-	disallowedNets  = []*net.IPNet{}
-	disallowedCidrs = []string{
+	disallowedNets    = []*net.IPNet{}
+	disallowedCidrs   = []string{
 		"127.0.0.0/8",
 		"::1/128",
 	}
@@ -101,4 +102,14 @@ func httpGet(url string) (body io.ReadCloser, err error) {
 
 	body = http.MaxBytesReader(nil, resp.Body, maxRespBytes)
 	return
+}
+
+func httpGetRemoteIP(req *http.Request) string {
+	if ips := req.Header.Get("X-Forwarded-For"); len(ips) > 0 {
+		ipsa := strings.Split(ips, ",")
+		return strings.TrimSpace(ipsa[0])
+	}
+
+	ip, _, _ := net.SplitHostPort(req.RemoteAddr)
+	return ip
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -215,6 +216,68 @@ func TestHTTPDisableLocal(t *testing.T) {
 		_, err := httpGet(a)
 		if err != errBadHost {
 			t.Errorf("%s allowed to hit localhost, no good: %s", a, err)
+		}
+	}
+}
+
+func TestTracking(t *testing.T) {
+	tr := tracking{
+		ip:  "127.0.0.1",
+		cid: rand.Uint32(),
+	}
+
+	url := getTrackingURL(tr, true)
+	if !strings.Contains(url, "uip=127.0.0.1") {
+		t.Fatalf("uip param not found in : %s", url)
+	}
+
+	url = getTrackingURL(tr, false)
+	if strings.Contains(url, "uip=127.0.0.1") {
+		t.Fatalf("uip param found in : %s", url)
+	}
+}
+
+func TestHTTPGetRemoteIP(t *testing.T) {
+	type req struct {
+		forwardedFor string
+		remoteAddr   string
+		expect       string
+	}
+
+	reqs := []req{
+		req{
+			forwardedFor: "127.0.0.1",
+			remoteAddr:   "192.168.1.2:123",
+			expect:       "127.0.0.1",
+		},
+		req{
+			forwardedFor: "127.0.0.1, abcd.no, wat",
+			remoteAddr:   "192.168.1.2:124",
+			expect:       "127.0.0.1",
+		},
+		req{
+			forwardedFor: "   127.0.0.1, 192.168.1.2",
+			remoteAddr:   "192.168.1.2:125",
+			expect:       "127.0.0.1",
+		},
+		req{
+			forwardedFor: "",
+			remoteAddr:   "192.168.1.2:126",
+			expect:       "192.168.1.2",
+		},
+	}
+
+	for _, r := range reqs {
+		req := &http.Request{
+			RemoteAddr: r.remoteAddr,
+			Header: http.Header{
+				"X-Forwarded-For": []string{r.forwardedFor},
+			},
+		}
+
+		ip := httpGetRemoteIP(req)
+		if ip != r.expect {
+			t.Errorf("wrong IP for %s: got %s", r.expect, ip)
 		}
 	}
 }

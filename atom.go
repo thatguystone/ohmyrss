@@ -69,5 +69,5 @@ type Atom struct {
 	Link        *AtomLink
 	Author      *AtomAuthor // required
 	Contributor *AtomContributor
-	Entries     []*AtomEntry
+	Entries     []*AtomEntry `xml:"entry"`
 }

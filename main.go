@@ -111,6 +111,10 @@ func cacheArticle(key string, a *article, expire int32) {
 }
 
 func getArticle(url string) *article {
+	if url == "" {
+		return nil
+	}
+
 	sum := sha1.Sum([]byte(url))
 	key := "ohmyrss_" + base64.StdEncoding.EncodeToString(sum[:])
 
@@ -225,8 +229,38 @@ func handleRss(rss *Rss) (string, error) {
 	return xmlEncode(rss)
 }
 
-func handleAtom(rss *Atom) (string, error) {
-	return "", nil
+func handleAtom(atom *Atom) (string, error) {
+	for _, item := range atom.Entries {
+		if item.Link == nil {
+			continue
+		}
+
+		a := getArticle(item.Link.Href)
+
+		// Don't modify if something went wrong
+		if a == nil {
+			continue
+		}
+
+		if a.Title != "" {
+			item.Title = a.Title
+		}
+
+		if a.FinalURL != "" {
+			item.Link.Href = a.FinalURL
+		}
+
+		if a.Content != "" {
+			if item.Content == nil {
+				item.Content = &AtomContent{}
+			}
+
+			item.Content.Type = "html"
+			item.Content.Content = a.Content
+		}
+	}
+
+	return xmlEncode(atom)
 }
 
 func xmlEncode(v interface{}) (string, error) {

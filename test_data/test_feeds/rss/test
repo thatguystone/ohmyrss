@@ -7,10 +7,12 @@
 		<item>
 			<title>Item 1</title>
 			<link>{{ .CommonURL }}/article1.html</link>
+			<description>bad content</description>
 		</item>
 		<item>
 			<title>Item 2</title>
 			<link>{{ .CommonURL }}/article2.html</link>
+			<description>bad content</description>
 		</item>
 	</channel>
 </rss>

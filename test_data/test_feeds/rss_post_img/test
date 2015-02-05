@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+	<channel>
+		<title>Image Feed</title>
+		<link>{{ .TestURL }}</link>
+		<description>Image Feed</description>
+		<item>
+			<title>Item 1</title>
+			<link>{{ .CommonURL }}/article_img.html</link>
+			<description>bad content</description>
+		</item>
+	</channel>
+</rss>

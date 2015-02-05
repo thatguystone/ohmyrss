@@ -83,10 +83,21 @@ func setupServer(testName *string, testDir string) (*httptest.Server, func(strin
 				testData,
 				strings.TrimLeft(r.URL.String(), "/"))
 
-			res, err := templated(path)
-			if err != nil {
-				http.Error(w, err.Error(), 400)
-				return
+			var res []byte
+			if strings.HasSuffix(path, ".jpg") {
+				var err error
+				res, err = ioutil.ReadFile(path)
+				if err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+			} else {
+				tmpl, err := templated(path)
+				if err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+				res = []byte(tmpl)
 			}
 
 			w.Write([]byte(res))

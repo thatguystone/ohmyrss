@@ -171,7 +171,8 @@ func feedHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if redirectURL != "" {
-		http.Redirect(w, req, redirectURL, http.StatusMovedPermanently)
+		req.URL.RawQuery = fmt.Sprintf("url=%s", redirectURL)
+		http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
 		return
 	}
 

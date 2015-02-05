@@ -46,21 +46,25 @@ func TestMemcache(t *testing.T) {
 	mc = nil
 }
 
-func TestFeeds(t *testing.T) {
+func setupServer(testName *string, testDir string) (*httptest.Server, func(string) (string, error)) {
 	var server *httptest.Server
-	var testName string
 
-	templated := func(tmpl []byte) (string, error) {
+	templated := func(path string) (string, error) {
 		t := template.New("test")
 
-		t, err := t.Parse(string(tmpl))
+		tmpl, err := ioutil.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("error reading template file: %s", err)
+		}
+
+		t, err = t.Parse(string(tmpl))
 		if err != nil {
 			return "", err
 		}
 
 		var b bytes.Buffer
 		err = t.Execute(&b, TestVariables{
-			TestURL:   fmt.Sprintf("%s/%s", server.URL, testName),
+			TestURL:   fmt.Sprintf("%s/%s/%s", server.URL, testDir, *testName),
 			CommonURL: fmt.Sprintf("%s/%s", server.URL, "_common"),
 		})
 		if err != nil {
@@ -76,13 +80,7 @@ func TestFeeds(t *testing.T) {
 				testData,
 				strings.TrimLeft(r.URL.String(), "/"))
 
-			tmpl, err := ioutil.ReadFile(path)
-			if err != nil {
-				http.Error(w, err.Error(), 400)
-				return
-			}
-
-			res, err := templated(tmpl)
+			res, err := templated(path)
 			if err != nil {
 				http.Error(w, err.Error(), 400)
 				return
@@ -90,29 +88,28 @@ func TestFeeds(t *testing.T) {
 
 			w.Write([]byte(res))
 		}))
+
+	return server, templated
+}
+
+func TestFeeds(t *testing.T) {
+	var testName string
+	testDir := "test_feeds"
+
+	server, templated := setupServer(&testName, testDir)
 	defer server.Close()
 
-	files, err := ioutil.ReadDir(testData)
+	files, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", testData, testDir))
 	if err != nil {
 		t.Fatalf("could not read test_data: %s", err)
 	}
 
 	for _, f := range files {
 		testName = f.Name()
-		if testName == "_common" {
-			continue
-		}
+		tc := fmt.Sprintf("%s/%s/%s/test", server.URL, testDir, testName)
+		tr := fmt.Sprintf("%s/%s/%s/result", testData, testDir, testName)
 
-		tc := fmt.Sprintf("%s/%s/test", server.URL, testName)
-		tr := fmt.Sprintf("%s/%s/result", testData, testName)
-
-		expb, err := ioutil.ReadFile(tr)
-		if err != nil {
-			t.Errorf("%s: error reading result file: %s", testName, err)
-			continue
-		}
-
-		exp, err := templated(expb)
+		exp, err := templated(tr)
 		if err != nil {
 			t.Errorf("%s: error running template: %s", testName, err)
 			continue
@@ -147,5 +144,39 @@ func TestFeeds(t *testing.T) {
 }
 
 func TestRedirect(t *testing.T) {
+	var testName string
+	testDir := "test_redirect"
 
+	server, templated := setupServer(&testName, testDir)
+	defer server.Close()
+
+	pubServer := httptest.NewServer(http.HandlerFunc(feedHandler))
+	defer pubServer.Close()
+
+	url := fmt.Sprintf("%s/?url=%s/%s/test", pubServer.URL, server.URL, testDir)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("get error: %s", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("body read error: %s", err)
+	}
+
+	path := fmt.Sprintf("%s/%s/result", testData, testDir)
+	exp, err := templated(path)
+	if err != nil {
+		t.Fatalf("error running template: %s", err)
+	}
+
+	if exp != string(body) {
+		t.Fatalf("%s: output mismatch:\n"+
+			"	got:      %s\n"+
+			"	expected: %s",
+			testName,
+			string(body),
+			exp)
+	}
 }

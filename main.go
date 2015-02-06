@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/fcgi"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -346,10 +347,10 @@ func urlAsPath(u url.URL) string {
 	u.Opaque = ""
 	u.User = nil
 
-	return strings.TrimPrefix(u.String(), "/")
+	return path.Clean(path.Join("/", u.String()))
 }
 
-func getTrackingURL(fr feedRequest, includeIP bool) string {
+func getTrackingURL(fr feedRequest, includeIP bool, isFeedHit bool) string {
 	ip := ""
 	if includeIP {
 		ip = fmt.Sprintf("&uip=%s", url.QueryEscape(fr.t.ip))
@@ -364,17 +365,24 @@ func getTrackingURL(fr feedRequest, includeIP bool) string {
 		u = fr.baseURL
 	}
 
+	dp := urlAsPath(*u)
+	if isFeedHit {
+		dp = "/hit" + dp
+	} else {
+		dp = "/read" + dp
+	}
+
 	return fmt.Sprintf(
 		"https://www.google-analytics.com/collect?v=1&tid=UA-6408039-10&cid=%d&t=pageview&dh=ohmyrss.com&dp=%s&dt=%s%s",
 		fr.t.cid,
-		url.QueryEscape(urlAsPath(*u)),
+		url.QueryEscape(dp),
 		url.QueryEscape(fr.t.title),
 		ip)
 }
 
 func track(fr feedRequest) {
 	go func() {
-		body, err := httpGet(getTrackingURL(fr, true))
+		body, err := httpGet(getTrackingURL(fr, true, true))
 		if err == nil {
 			body.Close()
 		}
@@ -382,7 +390,7 @@ func track(fr feedRequest) {
 }
 
 func addTracking(content *string, fr feedRequest) {
-	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(fr, false))
+	*content += fmt.Sprintf("<img src=\"%s\"/>", getTrackingURL(fr, false, false))
 }
 
 func checkLandingPage(u *url.URL, content string) (redirectURL string) {

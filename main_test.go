@@ -260,6 +260,49 @@ func TestHTTPDisableLocal(t *testing.T) {
 	}
 }
 
+func TestUrlAsPath(t *testing.T) {
+	type addr struct {
+		in  string
+		out string
+	}
+
+	addrs := []addr{
+		addr{
+			in:  "http://example.com/test",
+			out: "/example.com/test",
+		},
+		addr{
+			in:  "//example.com/test",
+			out: "/example.com/test",
+		},
+		addr{
+			in:  "example.com/test",
+			out: "/example.com/test",
+		},
+		addr{
+			in:  "example.com////test",
+			out: "/example.com/test",
+		},
+		addr{
+			in:  "http:////example.com////test",
+			out: "/example.com/test",
+		},
+		addr{
+			in:  "http:////example.com////test////another",
+			out: "/example.com/test/another",
+		},
+	}
+
+	for _, addr := range addrs {
+		u, _ := url.Parse(addr.in)
+		out := urlAsPath(*u)
+
+		if out != addr.out {
+			t.Errorf("addr mismatch: %s != %s", out, addr.out)
+		}
+	}
+}
+
 func TestTracking(t *testing.T) {
 	fr := feedRequest{
 		t: tracking{
@@ -269,14 +312,38 @@ func TestTracking(t *testing.T) {
 		},
 	}
 
-	url := getTrackingURL(fr, true)
+	url := getTrackingURL(fr, true, false)
 	if !strings.Contains(url, "uip=127.0.0.1") {
-		t.Fatalf("uip param not found in : %s", url)
+		t.Fatalf("uip param not found in: %s", url)
 	}
 
-	url = getTrackingURL(fr, false)
+	url = getTrackingURL(fr, false, false)
 	if strings.Contains(url, "uip=127.0.0.1") {
-		t.Fatalf("uip param found in : %s", url)
+		t.Fatalf("uip param found in: %s", url)
+	}
+
+	fr.t.url = "http:////localhost/test/it"
+	url = getTrackingURL(fr, false, true)
+	if !strings.Contains(url, "dp=%2Fhit%2Flocalhost%2Ftest") {
+		t.Fatalf("dp param not found in: %s", url)
+	}
+
+	fr.t.url = "localhost/test/it"
+	url = getTrackingURL(fr, false, true)
+	if !strings.Contains(url, "dp=%2Fhit%2Flocalhost%2Ftest") {
+		t.Fatalf("dp param not found in: %s", url)
+	}
+
+	fr.t.url = "http:////localhost/test/it"
+	url = getTrackingURL(fr, false, false)
+	if !strings.Contains(url, "dp=%2Fread%2Flocalhost%2Ftest") {
+		t.Fatalf("dp param not found in: %s", url)
+	}
+
+	fr.t.url = "localhost/test/it"
+	url = getTrackingURL(fr, false, false)
+	if !strings.Contains(url, "dp=%2Fread%2Flocalhost%2Ftest") {
+		t.Fatalf("dp param not found in: %s", url)
 	}
 }
 

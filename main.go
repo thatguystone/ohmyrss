@@ -15,6 +15,7 @@ import (
 	"net/http/fcgi"
 	"net/url"
 	"strings"
+	"time"
 
 	"code.google.com/p/cascadia"
 	"github.com/PuerkitoBio/goquery"
@@ -68,6 +69,7 @@ func init() {
 func main() {
 	flag.Parse()
 	httpDisableLocal()
+	rand.Seed(time.Now().UnixNano())
 
 	if memcacheServers != "" {
 		mc = memcache.New(strings.Split(memcacheServers, ",")...)
@@ -257,7 +259,7 @@ func handleRss(rss *Rss, fr feedRequest) (string, error) {
 	if ch.Image == nil {
 		ch.Image = &RssImage{
 			Title: ch.Title,
-			Link: ch.Link,
+			Link:  ch.Link,
 		}
 	}
 

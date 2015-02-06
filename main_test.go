@@ -17,7 +17,7 @@ import (
 )
 
 type TestVariables struct {
-	ServerHostPort string
+	ServerHostPort  string
 	TestURL         string
 	CommonURL       string
 	CommonURLAsPath string
@@ -71,7 +71,7 @@ func setupServer(testName *string, testDir string) (*httptest.Server, func(strin
 		var b bytes.Buffer
 		cpu, _ := url.Parse(fmt.Sprintf("%s/%s", server.URL, "_common"))
 		err = t.Execute(&b, TestVariables{
-			ServerHostPort: sHostPort,
+			ServerHostPort:  sHostPort,
 			TestURL:         fmt.Sprintf("%s/%s/%s", server.URL, testDir, *testName),
 			CommonURL:       fmt.Sprintf("%s/%s", server.URL, "_common"),
 			CommonURLAsPath: url.QueryEscape(urlAsPath(*cpu)),

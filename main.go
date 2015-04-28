@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/cascadia"
+	"github.com/andybalholm/cascadia"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bkaradzic/go-lz4"
 	"github.com/bradfitz/gomemcache/memcache"

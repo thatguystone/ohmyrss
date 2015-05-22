@@ -1,0 +1,12 @@
+<rss version="2.0">
+    <channel>
+        <title>Test RSS</title>
+        <link>{{ .TestURL }}</link>
+        <description>Test Feed</description>
+        <item>
+            <title>What's that looming behind this gravel-strewn hill on Comet Churyumov–Gerasimenko?</title>
+            <link>{{ .CommonURL }}/article1.html</link>
+            <description>bad content</description>
+        </item>
+    </channel>
+</rss>

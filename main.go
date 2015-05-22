@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/andybalholm/cascadia"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/andybalholm/cascadia"
 	"github.com/bkaradzic/go-lz4"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/thatguystone/swan"
@@ -224,6 +224,11 @@ func handleFeed(fr feedRequest) (feed string, redirectURL string, err error) {
 	defer body.Close()
 
 	in, err := ioutil.ReadAll(body)
+	if err != nil {
+		return
+	}
+
+	in, err = swan.ToUtf8(in)
 	if err != nil {
 		return
 	}

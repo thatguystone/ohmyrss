@@ -10,11 +10,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/fcgi"
 	"net/url"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -169,6 +171,17 @@ func getArticle(url string) *article {
 }
 
 func feedHandler(w http.ResponseWriter, req *http.Request) {
+	defer func() {
+		if err := recover(); err != nil {
+			const size = 64 << 10
+			buf := make([]byte, size)
+			buf = buf[:runtime.Stack(buf, false)]
+			log.Printf("http: panic serving %v: %v\n%s", req.RemoteAddr, err, buf)
+
+			w.WriteHeader(500)
+		}
+	}()
+
 	req.Body.Close()
 
 	feedURL := req.FormValue("url")
